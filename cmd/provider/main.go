@@ -85,11 +85,16 @@ func main() {
 			Features:                &feature.Flags{},
 		},
 		Provider: config.GetProvider(),
-		// use the following WorkspaceStoreOption to enable the shared gRPC mode
-		// terraform.WithProviderRunner(terraform.NewSharedProvider(log, os.Getenv("TERRAFORM_NATIVE_PROVIDER_PATH"), terraform.WithNativeProviderArgs("-debuggable")))
-		WorkspaceStore: terraform.NewWorkspaceStore(log),
-		SetupFn:        clients.TerraformSetupBuilder(*terraformVersion, *providerSource, *providerVersion),
+		SetupFn:  clients.TerraformSetupBuilder(*terraformVersion, *providerSource, *providerVersion),
 	}
+
+	if *enableManagementPolicies {
+		o.Features.Enable(features.EnableAlphaManagementPolicies)
+		log.Info("Alpha feature enabled", "flag", features.EnableAlphaManagementPolicies)
+	}
+	// use the following WorkspaceStoreOption to enable the shared gRPC mode
+	// terraform.WithProviderRunner(terraform.NewSharedProvider(log, os.Getenv("TERRAFORM_NATIVE_PROVIDER_PATH"), terraform.WithNativeProviderArgs("-debuggable"), terraform.WithFeatures(o.Features)))
+	o.WorkspaceStore = terraform.NewWorkspaceStore(log, terraform.WithFeatures(o.Features))
 
 	if *enableExternalSecretStores {
 		o.SecretStoreConfigGVK = &v1alpha1.StoreConfigGroupVersionKind
@@ -108,11 +113,6 @@ func main() {
 				},
 			},
 		})), "cannot create default store config")
-	}
-
-	if *enableManagementPolicies {
-		o.Features.Enable(features.EnableAlphaManagementPolicies)
-		log.Info("Alpha feature enabled", "flag", features.EnableAlphaManagementPolicies)
 	}
 
 	kingpin.FatalIfError(controller.Setup(mgr, o), "Cannot setup PagerDuty controllers")
